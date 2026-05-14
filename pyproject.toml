@@ -1,0 +1,51 @@
+[project]
+name = "takopi-claude-platform-aws"
+version = "0.1.0"
+description = "Takopi engine backend for Anthropic Claude Platform on AWS."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "takopi plugin contributors" }]
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic[aws,bedrock]>=0.88.0",
+  "anyio>=4.0",
+  "takopi>=0.22,<0.23; python_version >= '3.14'",
+]
+keywords = ["takopi", "anthropic", "claude", "aws", "engine", "plugin"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://takopi.dev"
+Repository = "https://github.com/banteg/takopi"
+
+[project.entry-points."takopi.engine_backends"]
+claude_platform_aws = "takopi_claude_platform_aws.backend:BACKEND"
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.0",
+  "pytest-anyio>=0.0.0",
+  "ruff>=0.14.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-select = ["B", "BLE001", "C4", "PERF", "SIM", "UP"]

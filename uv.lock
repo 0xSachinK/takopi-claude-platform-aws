@@ -857,7 +857,7 @@ wheels = [
 
 [[package]]
 name = "takopi-claude-platform-aws"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic", extra = ["aws", "bedrock"] },

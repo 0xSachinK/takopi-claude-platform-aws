@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -66,12 +67,17 @@ def test_runner_maps_text_tools_and_resume_to_takopi_events(tmp_path: Path) -> N
         ],
         final_message=_message(
             [
-                {"type": "text", "text": "checking"},
+                {
+                    "type": "text",
+                    "text": "checking",
+                    "parsed_output": {"sdk": "only"},
+                },
                 {
                     "type": "tool_use",
                     "id": "tool-1",
                     "name": "Read",
                     "input": {"path": "input.txt"},
+                    "parsed_output": {"sdk": "only"},
                 },
             ]
         ),
@@ -112,6 +118,18 @@ def test_runner_maps_text_tools_and_resume_to_takopi_events(tmp_path: Path) -> N
         event.action.id == "tool-1" and event.phase == "completed" and event.ok is True
         for event in actions
     )
+    replay_messages = fake_client.messages.calls[1]["messages"]
+    assert replay_messages[1]["content"] == [
+        {"type": "text", "text": "checking"},
+        {
+            "type": "tool_use",
+            "id": "tool-1",
+            "name": "Read",
+            "input": {"path": "input.txt"},
+        },
+    ]
+    assert set(replay_messages[2]["content"][0]) == {"type", "tool_use_id", "content"}
+    assert "parsed_output" not in json.dumps(replay_messages)
 
 
 def test_runner_falls_back_to_bedrock_on_transient_primary_error(tmp_path: Path) -> None:

@@ -33,7 +33,7 @@ from .config import (
 )
 from .mcp import McpHost
 from .prompts import build_system_prompt
-from .sessions import SessionStore, to_plain
+from .sessions import SessionStore, project_content_blocks, to_plain
 from .tools import ToolRegistry, tool_action_kind_and_title
 
 logger = get_logger(__name__)
@@ -151,7 +151,7 @@ class ClaudePlatformAWSRunner(BaseRunner):
 
                 text_parts, tool_uses = _response_parts(response)
                 usage = _usage_payload(response)
-                assistant_content = to_plain(getattr(response, "content", []))
+                assistant_content = project_content_blocks(getattr(response, "content", []))
                 messages.append({"role": "assistant", "content": assistant_content})
 
                 if not tool_uses:
@@ -188,7 +188,6 @@ class ClaudePlatformAWSRunner(BaseRunner):
                             "type": "tool_result",
                             "tool_use_id": tool_use.id,
                             "content": result.content,
-                            "is_error": not result.ok,
                         }
                     )
                 messages.append({"role": "user", "content": tool_results})

@@ -30,7 +30,7 @@ class SessionStore:
             messages = raw.get("messages")
             if not isinstance(messages, list):
                 return []
-            return _copy_messages(messages)
+            return project_messages(messages)
 
     def save_messages(self, session_id: str, messages: list[dict[str, Any]]) -> None:
         now = time.time()
@@ -45,7 +45,7 @@ class SessionStore:
             if isinstance(prior, dict) and isinstance(prior.get("created_at"), (int, float)):
                 created_at = float(prior["created_at"])
             sessions[session_id] = {
-                "messages": _copy_messages(messages),
+                "messages": project_messages(messages),
                 "created_at": created_at,
                 "updated_at": now,
             }
@@ -75,8 +75,105 @@ class SessionStore:
         tmp.replace(self.path)
 
 
-def _copy_messages(messages: list[Any]) -> list[dict[str, Any]]:
-    return [to_plain(item) for item in messages if isinstance(item, dict)]
+def project_messages(messages: list[Any]) -> list[dict[str, Any]]:
+    return [message for item in messages if (message := project_message(item)) is not None]
+
+
+def project_message(message: Any) -> dict[str, Any] | None:
+    role = _string_field(_attr_or_item(message, "role"))
+    if role not in {"assistant", "user"}:
+        return None
+    content = project_message_content(_attr_or_item(message, "content"))
+    if content is None or content == []:
+        return None
+    return {"role": role, "content": content}
+
+
+def project_message_content(content: Any) -> str | list[dict[str, Any]] | None:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, (list, tuple)):
+        return project_content_blocks(content)
+    return None
+
+
+def project_content_blocks(content: list[Any] | tuple[Any, ...]) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
+    for block in content:
+        projected = _project_content_block(block)
+        if projected is not None:
+            blocks.append(projected)
+    return blocks
+
+
+def _project_content_block(block: Any) -> dict[str, Any] | None:
+    block_type = _string_field(_attr_or_item(block, "type"))
+    if block_type == "text":
+        text = _string_field(_attr_or_item(block, "text"), default="")
+        return {"type": "text", "text": text}
+    if block_type == "tool_use":
+        tool_id = _string_field(_attr_or_item(block, "id"))
+        name = _string_field(_attr_or_item(block, "name"))
+        if not tool_id or not name:
+            return None
+        return {
+            "type": "tool_use",
+            "id": tool_id,
+            "name": name,
+            "input": _plain_mapping(_attr_or_item(block, "input")),
+        }
+    if block_type == "tool_result":
+        tool_use_id = _string_field(_attr_or_item(block, "tool_use_id"))
+        if not tool_use_id:
+            return None
+        return {
+            "type": "tool_result",
+            "tool_use_id": tool_use_id,
+            "content": _project_tool_result_content(_attr_or_item(block, "content")),
+        }
+    return None
+
+
+def _project_tool_result_content(content: Any) -> str | list[dict[str, Any]]:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, (list, tuple)):
+        return [
+            block
+            for item in content
+            if (block := _project_tool_result_content_block(item)) is not None
+        ]
+    plain = to_plain(content)
+    if isinstance(plain, str):
+        return plain
+    if plain is None:
+        return ""
+    return str(plain)
+
+
+def _project_tool_result_content_block(block: Any) -> dict[str, Any] | None:
+    if _string_field(_attr_or_item(block, "type")) != "text":
+        return None
+    text = _string_field(_attr_or_item(block, "text"), default="")
+    return {"type": "text", "text": text}
+
+
+def _plain_mapping(value: Any) -> dict[str, Any]:
+    plain = to_plain(value)
+    return plain if isinstance(plain, dict) else {}
+
+
+def _string_field(value: Any, *, default: str | None = None) -> str | None:
+    plain = to_plain(value)
+    if plain is None:
+        return default
+    return plain if isinstance(plain, str) else str(plain)
+
+
+def _attr_or_item(value: Any, key: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(key)
+    return getattr(value, key, None)
 
 
 def to_plain(value: Any) -> Any:
